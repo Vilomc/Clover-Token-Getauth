@@ -1,9 +1,16 @@
-const express = require('express');
-const axios = require('axios');
-const path = require('path');
+import express from 'express'
+import axios from 'axios'
+import path from 'path'
+import {dirname} from 'path'
+import {config} from 'dotenv'
+import { fileURLToPath } from 'url';
 
+config()
 const app = express();
 const port = 3000;
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Middleware para servir archivos estáticos desde la carpeta 'public'
 app.use(express.static(path.join(__dirname, 'public')));
