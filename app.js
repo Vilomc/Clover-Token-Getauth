@@ -27,7 +27,7 @@ app.get('/', async (req, res) => {
   console.log('Code:', code);
 
   const appId = client_id;
-  const appSecret = 'USAR .ENV para el app Secret';
+  const appSecret = process.env.APPSECRET;
 
   try {
     const accessToken = await getAccessToken(appId, appSecret, code);
