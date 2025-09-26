@@ -1,61 +1,75 @@
 import express from 'express'
 import axios from 'axios'
-import path from 'path'
-import {dirname} from 'path'
-import {config} from 'dotenv'
-import { fileURLToPath } from 'url';
 
-config()
 const app = express();
 const port = 3000;
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// 🔑 Configuración fija del backend
+const APP_ID = 'TU_APP_ID';
+const APP_SECRET = 'TU_APP_SECRET';
 
-// Middleware para servir archivos estáticos desde la carpeta 'public'
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json());
 
 app.get('/', async (req, res) => {
   const { merchant_id, client_id, code } = req.query;
 
   if (!merchant_id || !client_id || !code) {
-    return res.status(400).send('Missing required query parameters');
+    return res.status(400).json({ error: 'Missing required query parameters: merchant_id, client_id, code' });
+  }
+
+  if (client_id !== APP_ID) {
+    return res.status(403).json({ error: 'Backend configurado para otra app' });
   }
 
   console.log('Merchant ID:', merchant_id);
-  console.log('Client ID:', client_id);
+  console.log('Client ID recibido:', client_id);
   console.log('Code:', code);
 
-  const appId = client_id;
-  const appSecret = process.env.APPSECRET;
-
   try {
-    const accessToken = await getAccessToken(appId, appSecret, code);
-    console.log('Access Token:', accessToken);
+    const tokenData = await getAccessToken(APP_ID, APP_SECRET, code);
+    console.log('Token response:', tokenData);
 
-    // Almacenar el token en sessionStorage si es necesario
-    const script = `<script>sessionStorage.setItem('accessToken', '${accessToken}'); window.location.href = '/token.html';</script>`;
-    res.send(script);
-
+    res.json(tokenData);
   } catch (error) {
     console.error('Error fetching access token:', error);
-    res.status(500).send('Error fetching access token');
+
+    if (error.response) {
+      return res.status(error.response.status || 500).json({
+        message: 'Error fetching access token (upstream)',
+        status: error.response.status,
+        data: error.response.data
+      });
+    }
+    res.status(500).json({ message: 'Error fetching access token', error: error.message });
   }
 });
 
 async function getAccessToken(appId, appSecret, code) {
-  try {
-    const response = await axios.get('https://sandbox.dev.clover.com/oauth/token', {
-      params: {
-        client_id: appId,
-        client_secret: appSecret,
-        code: code
-      }
+  const baseUrl = 'https://sandbox.dev.clover.com/oauth/token';
+  const v2Url = 'https://sandbox.dev.clover.com/oauth/v2/token';
+
+  if (!code.includes('-')) {
+    // POST JSON al endpoint /v2/token
+    const payload = {
+      client_id: appId,
+      client_secret: appSecret,
+      code: code
+    };
+
+    const response = await axios.post(v2Url, payload, {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 10000
     });
 
-    return response.data.access_token;
-  } catch (error) {
-    throw new Error('Failed to fetch access token');
+    return response.data;
+  } else {
+    // GET JSON al endpoint /oauth/token
+    const response = await axios.get(baseUrl, {
+      params: { client_id: appId, client_secret: appSecret, code },
+      timeout: 10000
+    });
+
+    return response.data;
   }
 }
 
