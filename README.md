@@ -64,19 +64,13 @@ El backend quedará escuchando en `http://localhost:3000`.
 
 ## 4. Uso del endpoint principal
 
-### Endpoint
-
-```
-GET /
-```
-
 ### Query parameters obligatorios
 
 - `merchant_id`: ID del comercio.
 - `client_id`: Debe coincidir con `APP_ID`.
 - `code`: Código de autorización proporcionado por Clover.
 
-### Ejemplo de request
+### Ejemplo de request desde Clover Web Dashboard al conectar la app
 
 ```
 http://localhost:3000/?merchant_id=123&client_id=TU_APP_ID&code=abcd1234
