@@ -1,125 +1,82 @@
-# Manual de uso del backend OAuth de Clover (Sandbox)
+# Clover OAuth V2 Backend (Sandbox – Alternate Launch)
 
-## 1. Requisitos previos
+Backend Node.js para implementar el flujo OAuth V2 con Alternate Launch en Clover (entorno Sandbox).
 
-Antes de ejecutar este backend necesitas:
+## 1. Requisitos
+- Node.js 16+
+- npm 8+
+- Aplicación creada en Clover Sandbox
 
-- Node.js (v16 o superior recomendado)
-- npm (v8 o superior recomendado)
-- Una cuenta de desarrollador en [Clover] para obtener:
-  - `APP_ID` (Client ID)
-  - `APP_SECRET` (Client Secret)
-
----
+**Credenciales:**
+- `APP_ID` (Client ID)
+- `APP_SECRET` (Client Secret)
 
 ## 2. Instalación
-
-1. **Clonar o copiar el proyecto**
-
-   ```bash
-   git clone <repositorio>  # o simplemente crea una carpeta y guarda el archivo server.js
-   cd <nombre_del_proyecto>
-   ```
-
-2. **Inicializar proyecto Node.js (si no existe package.json)**
-
-   ```bash
-   npm init -y
-   ```
-
-3. **Instalar dependencias**
-
-   ```bash
-   npm install express axios
-   ```
-
-4. **Configurar las credenciales**
-
-   En el archivo `app.js`, reemplaza:
-
-   ```js
-   const APP_ID = 'TU_APP_ID';
-   const APP_SECRET = 'TU_APP_SECRET';
-   ```
-
-   Por tus valores de sandbox de Clover.
-
----
-
-## 3. Cómo ejecutar
-
+### Crear proyecto:
 ```bash
-node server.js
+mkdir clover-oauth-backend
+cd clover-oauth-backend
+```
+### Inicializar Node:
+```bash
+npm init -y
+```
+### Instalar dependencias:
+```bash
+npm install express axios
+```
+### Configurar credenciales en `server.js`:
+```js
+const APP_ID = 'TU_APP_ID';
+const APP_SECRET = 'TU_APP_SECRET';
 ```
 
-Deberías ver en consola:
+## 3. Configuración en Clover Dashboard
+En **Edit REST Configuration**:
+- **Site URL:**
+  ```http://localhost:3000``` 
+- **Alternate Launch Path:**
+  ```/alternate-launch``` 
+Clover construirá automáticamente:
+```http://localhost:3000/alternate-launch```
+Ese es el endpoint que Clover invoca cuando se instala o ejecuta la aplicación.
 
-```
-App listening at http://localhost:3000
-```
+## 4. Diferencia entre `Alternate Launch` y `redirect_uri`
+### Alternate Launch:
+Es el endpoint inicial que Clover llama:
+```http://localhost:3000/alternate-launch```
+Se define mediante:
+sitio URL y Alternate Launch Path.
+El `redirect_uri` es el endpoint al que Clover redirige después de generar el authorization code.
+Ejemplo configurado en el backend:
 
-El backend quedará escuchando en `http://localhost:3000`.
+http://localhost:3000/oauth/callback
 
----
+ejemplo real de callback: http://localhost:3000/oauth/callback?merchant_id=MERCHANT_ID&employee_id=EMPLOYEE_ID&state=STATE&client_id=APP_ID&code=AUTH_CODE, ese endpoint recibe el code, intercambia por access_token y devuelve el JSON del token en navegador.
 
-## 4. Uso del endpoint principal
+## 5. Flujo OAuth V2
+1. **Clover llama Alternate Launch:**
+get `/alternate-launch?merchant_id=...&client_id=...`
+el backend valida client_id y responde con redirección 302.
+2. **Redirección a Clover OAuth:**
+https://sandbox.dev.clover.com/oauth/v2/merchants/{merchant_id}
+párametros enviados incluyen client_id, redirect_uri, response_type, y state.
+3. **Callback OAuth:**
+get `/oauth/callback?code=AUTH_CODE&state=MERCHANT_ID`.
+donde se intercambia el código por token mediante POST a la API de tokens con payload incluyendo client_id, client_secret, code, grant_type.
+4. **Respuesta Final:**
+el backend devuelve exactamente el JSON recibido desde Clover, ejemplo:
+{"access_token": "...","access_token_expiration": 1772680513,"refresh_token": "...","refresh_token_expiration": 1804214713}
 
-### Query parameters obligatorios
+Es importante notar que `access_token_expiration` es timestamp Unix.
+La respuesta de Clover no se modifica.
 
-- `merchant_id`: ID del comercio.
-- `client_id`: Debe coincidir con `APP_ID`.
-- `code`: Código de autorización proporcionado por Clover.
-
-### Ejemplo de request desde Clover Web Dashboard al conectar la app
-
-```
-http://localhost:3000/?merchant_id=123&client_id=TU_APP_ID&code=abcd1234
-```
-
----
-
-## 5. Funcionamiento interno
-
-1. **Validación de parámetros**
-
-   - Si falta `merchant_id`, `client_id` o `code` → retorna **400** con error.
-   - Si `client_id` no coincide con `APP_ID` → retorna **403**.
-
-2. **Obtención del token**
-
-   La función `getAccessToken()` decide a qué endpoint llamar según el formato del `code`:
-
-   - **Si el code NO contiene "-"** → POST JSON a `https://sandbox.dev.clover.com/oauth/v2/token`
-     ```json
-     {
-       "client_id": "<APP_ID>",
-       "client_secret": "<APP_SECRET>",
-       "code": "<code>"
-     }
-     ```
-   - **Si el code contiene "-"** → GET a `https://sandbox.dev.clover.com/oauth/token` con query params.
-
-3. **Tiempo de espera**: 10 segundos máximo por request.
-
----
-
-## 6. Respuestas posibles
-
-| Situación | Código HTTP | Respuesta JSON |
-|-----------|------------|----------------|
-| Parámetros faltantes | 400 | `{ error: 'Missing required query parameters: merchant_id, client_id, code' }` |
-| `client_id` incorrecto | 403 | `{ error: 'Backend configurado para otra app' }` |
-| Token obtenido correctamente | 200 | `{ access_token: "...", refresh_token: "...", expires_in: ..., token_type: "bearer" }` |
-| Error en el servidor de Clover | 500 o status upstream | `{ message: 'Error fetching access token', error: "<mensaje>" }` o `{ message: 'Error fetching access token (upstream)', status: <status>, data: <datos> }` |
-
-> En consola siempre se loguean los valores de `merchant_id`, `client_id`, `code` y la respuesta de token.
-
----
-
-## 7. Descargo de responsabilidad
-
-- Este backend **solo funciona en el entorno Sandbox** de Clover.  
-- No debe usarse en producción sin cambios y revisiones de seguridad.  
-- Los tokens y códigos son **solo para pruebas en equipo sandbox asociado al merchantId correspondiente**,  
-- El código es **educativo y de prueba**, no se garantiza seguridad ni disponibilidad en un entorno real.
-
+## 6. Ejecución
+Ejecutar con comando:
+node server.js 
+Salida esperada: Server running at http://localhost:3000.
+Debido a que indica que está corriendo correctamente.
+También muestra si hay errores o problemas de conexión.
+Ya se puede acceder a la app desde la web de Clover para probar los endpoints definidos.
+todo esto asumiendo configuración correcta del entorno y credenciales válidas en la app de Clover Sandbox.
+yo debe asegurarse de tener permisos adecuados y configurar correctamente los URLs en dashboard de Clover para evitar errores de redireccionamiento o autenticación incorrecta.'
