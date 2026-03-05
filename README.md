@@ -80,3 +80,7 @@ También muestra si hay errores o problemas de conexión.
 Ya se puede acceder a la app desde la web de Clover para probar los endpoints definidos.
 todo esto asumiendo configuración correcta del entorno y credenciales válidas en la app de Clover Sandbox.
 yo debe asegurarse de tener permisos adecuados y configurar correctamente los URLs en dashboard de Clover para evitar errores de redireccionamiento o autenticación incorrecta.'
+
+## Diagrama de negociacion
+<img width="753" height="808" alt="image" src="https://github.com/user-attachments/assets/f5761289-2838-4d7e-afd4-d08738008cdb" />
+
